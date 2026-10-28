@@ -7,7 +7,7 @@ Creates a short WAV in output/kokoro-smoke. No internet/API key required.
 """
 from pathlib import Path
 
-from video.kokoro_narrator import generate_documentary_narration
+from video.kokoro_narrator import run_kokoro_worker
 
 
 def main():
@@ -36,7 +36,7 @@ def main():
         ],
     }
     folder = Path("output") / "kokoro-smoke"
-    path = generate_documentary_narration(script, str(folder))
+    path = run_kokoro_worker(script, str(folder))
     print(f"\nListen to the generated voice: {Path(path).resolve()}")
     print(f"Timing metadata: {(folder / 'narration_timing.json').resolve()}")
 
