@@ -1,0 +1,5 @@
+# Optional local narration stack for Mysteries of the World.
+# The base YAAS requirements remain unchanged for other workflows.
+-r requirements.txt
+kokoro-onnx>=0.5.0
+soundfile>=0.12.1
