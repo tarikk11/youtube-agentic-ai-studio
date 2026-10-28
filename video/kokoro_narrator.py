@@ -109,7 +109,7 @@ def generate_documentary_narration(script: dict, output_dir: str) -> str:
     if voice_name not in available:
         raise ValueError(f"Voice {voice_name!r} is not in Kokoro model voice list.")
 
-    print(f"   → Narrating documentary locally with Kokoro {voice_name} at {speed:.2f}x")
+    print(f"   -> Narrating documentary locally with Kokoro {voice_name} at {speed:.2f}x")
     sample_rate = None
     written_samples = 0
     spans = []
@@ -183,8 +183,8 @@ def generate_documentary_narration(script: dict, output_dir: str) -> str:
     }
     # Writing this last marks the narration as complete.
     timing_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    print(f"   → Audio: {audio_path} ({metadata['total_duration_seconds']:.1f}s)")
-    print(f"   → Exact chapter timeline: {timing_path}")
+    print(f"   -> Audio: {audio_path} ({metadata['total_duration_seconds']:.1f}s)")
+    print(f"   -> Exact chapter timeline: {timing_path}")
     return str(audio_path)
 
 
@@ -251,14 +251,21 @@ def run_kokoro_worker(script: dict, output_dir: str) -> str:
             executable, "-m", "video.kokoro_narrator", "--script", tmp_path,
             "--output-dir", str(output.resolve())
         ]
+        # Some Windows consoles use cp1252. Keep worker output UTF-8
+        # and escape characters unprintable by the parent console.
+        worker_env = os.environ.copy()
+        worker_env["PYTHONIOENCODING"] = "utf-8:backslashreplace"
         process = subprocess.Popen(
             command, cwd=str(root), stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True, bufsize=1,
-            encoding="utf-8", errors="replace",
+            encoding="utf-8", errors="replace", env=worker_env,
         )
         if process.stdout:
+            import sys
+            encoding = sys.stdout.encoding or "utf-8"
             for line in process.stdout:
-                print(line.rstrip())
+                safe = line.rstrip().encode(encoding, errors="backslashreplace").decode(encoding)
+                print(safe)
         code = process.wait()
         if code:
             raise RuntimeError(f"Kokoro voice worker exited with code {code}; "
