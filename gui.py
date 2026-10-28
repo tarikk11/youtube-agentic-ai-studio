@@ -497,7 +497,9 @@ def _run_pipeline(steps: list, topic_override: str = "", video_type: str = "norm
             ap = os.path.join(config.OUTPUT_DIR, name)
             _state["audio_path"] = ap if os.path.exists(ap) else None
 
-        if not _state["audio_path"] or not os.path.exists(_state["audio_path"]):
+        # Script/research-only pilot runs must not require audio.
+        needs_audio = any(stage in steps for stage in ("narration", "music", "video"))
+        if needs_audio and (not _state["audio_path"] or not os.path.exists(_state["audio_path"])):
             raise FileNotFoundError("Narration audio missing — run Narration step.")
 
         _check_stop("narration")
@@ -518,14 +520,16 @@ def _run_pipeline(steps: list, topic_override: str = "", video_type: str = "norm
         _check_stop("music")
 
         # ── Thumbnail ─────────────────────────────────────────
-        _log("Generating thumbnail…")
-        try:
-            image_map_int = {int(k): v for k, v in _state["image_map"].items()}
-            thumb = _make_thumbnail(script, image_map_int, config.OUTPUT_DIR)
-            _state["thumb_path"] = thumb
-            _log(f"Thumbnail saved: {thumb}")
-        except Exception as e:
-            _log(f"Thumbnail failed (non-fatal): {e}", "warn")
+        # Avoid extra provider calls when the user is just reviewing a script.
+        if "images" in steps or "video" in steps:
+            _log("Generating thumbnail…")
+            try:
+                image_map_int = {int(k): v for k, v in _state["image_map"].items()}
+                thumb = _make_thumbnail(script, image_map_int, config.OUTPUT_DIR)
+                _state["thumb_path"] = thumb
+                _log(f"Thumbnail saved: {thumb}")
+            except Exception as e:
+                _log(f"Thumbnail failed (non-fatal): {e}", "warn")
 
         _check_stop("thumbnail")
 
