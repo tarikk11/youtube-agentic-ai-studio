@@ -13,6 +13,7 @@ build/
 # ── Virtual environments ─────────────────
 venv/
 .venv/
+.venv-kokoro/
 env/
 .env/
 ENV/
