@@ -130,42 +130,84 @@ def research_topic(channel_description: str,
         facts_block = (f"\nVERIFIED BACKGROUND (from Wikipedia / arXiv — build on these, don't contradict them):\n"
                        f"{grounding['facts'][:3500]}\n") if grounding["facts"] else ""
 
-        prompt = f"""You are a top YouTube content strategist for a viral science/tech channel.
+        if getattr(config, "DOCUMENTARY_MODE", False):
+            prompt = f"""You are an editorial researcher developing an original,
+calm long-form historical/mystery documentary for Mysteries of the World.
 
-Channel description:
+CHANNEL IDENTITY:
 {channel_description}
 
-MANDATORY INSTRUCTION: You MUST make a video about this EXACT topic:
->>> {exact_topic} <<<
+EXACT SUBJECT (do not substitute a different mystery):
+{exact_topic}
 
-Do NOT substitute a different topic, do NOT pick a related angle — write specifically
-about "{exact_topic}". The user has explicitly requested this topic.
+BACKGROUND RESEARCH NOTES (leads, not independent proof):
+{grounding.get("facts", "")[:4000] or "No verified source notes available."}
 
-BANNED TOPICS: Do NOT include any of these in the output: {banned_str}
-If the requested topic conflicts with a banned one, still write about it (user override).
+Editorial requirements:
+- Tell a compelling historical story in a quiet, thoughtful voice.
+- Outline geography, chronology, documented incidents, credible explanations
+  and the distinction between folklore and supported historical evidence.
+- Never invent dates, eyewitness quotes, missing persons, vessels or statistics.
+- Clearly flag claims needing further verification and competing explanations.
+- For the Bermuda Triangle, include flight and ship incidents only with
+  qualifications supported by research; do not present sensational myths as fact.
+- Choose five to eight specific, non-overlapping research key points useful
+  for a chaptered documentary (not a short science explainer).
+- Avoid hype, manufactured cliffhangers, clickbait, invented mysteries or
+  unsupported supernatural conclusions.
+- Emphasize the story's enduring historical interest instead of pretend newsworthiness.
 
-Your mission: Research and plan a compelling 6-8 minute YouTube video about "{exact_topic}".
-{facts_block}
-Respond with ONLY a valid JSON object. No markdown fences, no explanation:
-
+Return ONLY a valid JSON object with all required fields:
 {{
   "topic": "{exact_topic}",
-  "why_now": "Why this topic resonates with audiences right now",
-  "video_title": "MIND-BLOWING YouTube title under 70 characters about {exact_topic}",
-  "description": "2-sentence YouTube description optimised for SEO and curiosity",
-  "hook_question": "The single most mind-blowing question this video answers",
-  "key_points": [
-    "First key concept or revelation about {exact_topic}",
-    "Second key concept — the twist or surprise",
-    "Third key concept — deeper implication",
-    "Fourth key concept — real-world consequence",
-    "Fifth key concept — the philosophical angle"
-  ],
-  "target_audience": "Exactly who will watch and share this",
-  "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"],
-  "thumbnail_concept": "Describe the perfect YouTube thumbnail for this topic",
-  "estimated_virality": "high"
+  "why_now": "Why this is an enduring subject of historical curiosity",
+  "video_title": "A calm, accurate title under 80 characters",
+  "description": "Two clear documentary description sentences",
+  "hook_question": "An evidence-focused historical question",
+  "key_points": ["Specific point 1", "Specific point 2", "Specific point 3",
+                  "Specific point 4", "Specific point 5", "Specific point 6"],
+  "target_audience": "Viewers interested in long-form calm mystery documentaries",
+  "tags": ["history", "mysteries", "documentary"],
+  "thumbnail_concept": "An archival photograph or an atmospheric real location",
+  "estimated_virality": "evergreen"
 }}"""
+        else:
+            prompt = f"""You are a top YouTube content strategist for a viral science/tech channel.
+
+    Channel description:
+    {channel_description}
+
+    MANDATORY INSTRUCTION: You MUST make a video about this EXACT topic:
+    >>> {exact_topic} <<<
+
+    Do NOT substitute a different topic, do NOT pick a related angle — write specifically
+    about "{exact_topic}". The user has explicitly requested this topic.
+
+    BANNED TOPICS: Do NOT include any of these in the output: {banned_str}
+    If the requested topic conflicts with a banned one, still write about it (user override).
+
+    Your mission: Research and plan a compelling 6-8 minute YouTube video about "{exact_topic}".
+    {facts_block}
+    Respond with ONLY a valid JSON object. No markdown fences, no explanation:
+
+    {{
+      "topic": "{exact_topic}",
+      "why_now": "Why this topic resonates with audiences right now",
+      "video_title": "MIND-BLOWING YouTube title under 70 characters about {exact_topic}",
+      "description": "2-sentence YouTube description optimised for SEO and curiosity",
+      "hook_question": "The single most mind-blowing question this video answers",
+      "key_points": [
+        "First key concept or revelation about {exact_topic}",
+        "Second key concept — the twist or surprise",
+        "Third key concept — deeper implication",
+        "Fourth key concept — real-world consequence",
+        "Fifth key concept — the philosophical angle"
+      ],
+      "target_audience": "Exactly who will watch and share this",
+      "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"],
+      "thumbnail_concept": "Describe the perfect YouTube thumbnail for this topic",
+      "estimated_virality": "high"
+    }}"""
 
         data = _parse(generate(prompt))
         data["grounding"] = grounding
