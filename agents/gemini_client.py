@@ -7,11 +7,9 @@ LLM Client — shared across all agents.
    free fallback chain in apis/llm.py: Groq → OpenRouter → Pollinations
    (keyless), so generation always has somewhere to go.
 
-Free-tier daily limits (approximate):
-  gemini-2.5-flash      → 500 req/day
-  gemini-2.0-flash      → 1,500 req/day
-  gemini-2.0-flash-lite → 1,500 req/day
-  gemma-4-31b-it        → 500 req/day
+Availability, free-tier quotas, and Gemini model access change. Validate
+which models your API key supports in Google AI Studio. Retired 2.0 entries
+are retained only for compatibility with older configurations/tests.
 """
 import time
 import config
@@ -20,14 +18,16 @@ import config
 # The actual runtime order is determined by build_chain() below,
 # which rotates this list so config.GEMINI_MODEL comes first.
 _ALL_MODELS = [
-    "gemini-2.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash",       # legacy projects only; Google restricts new usage
     "gemini-2.5-flash-lite",
-    "gemma-4-31b-it",        # Gemma 4 31B dense — strong reasoning, free tier
+    "gemma-3-27b-it",
+    # Kept for backwards-compatible explicit preferences; retired models
+    # will be skipped when the API reports NOT_FOUND.
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemma-3-27b-it",
-    "gemini-1.5-flash-001",
-    "gemini-1.5-pro-001",
 ]
 
 # Which provider answered the last call — shown in the GUI
