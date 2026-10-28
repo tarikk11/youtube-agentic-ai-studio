@@ -35,11 +35,20 @@ If the new branch has already been created locally, use
 > This branch already excludes the watermark. Do not blindly `git stash pop`
 > over it: that may restore the old watermark code or cause conflicts.
 
-## 2. Install optional Kokoro dependencies
+## 2. Install Kokoro in a SEPARATE virtual environment
+
+YAAS uses MoviePy 1 and NumPy 1; recent Kokoro ONNX requires NumPy 2.
+Installing both in the same environment would break the YAAS dependency pins.
+Keep your existing `.venv` untouched. In this repository folder, run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-documentary.txt
+py -3.11 -m venv .venv-kokoro
+.\.venv-kokoro\Scripts\python.exe -m pip install --upgrade pip
+.\.venv-kokoro\Scripts\python.exe -m pip install -r requirements-documentary.txt
 ```
+
+The main YAAS process invokes the separate Kokoro interpreter automatically.
+No manual venv activation is required when using the GUI.
 
 ## 3. Download the official open model assets (once)
 
@@ -54,13 +63,22 @@ subscription-free local TTS integration. The default speech settings in
 `config.py` use `bm_george` with `KOKORO_SPEED = 0.92`. Exact speech duration
 depends on the text and the chosen speed.
 
-## 4. Run the offline test suite
+## 4. Check the voice with a short offline sample
+
+```powershell
+.\.venv\Scripts\python.exe .\kokoro_smoke.py
+```
+
+Listen to `output\kokoro-smoke\narration.wav` and check the chapter
+timestamps. No AI account or YouTube connection is used.
+
+## 5. Run the offline test suite
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-## 5. Try a controlled documentary narration
+## 6. Try a controlled documentary narration
 
 Start with a reviewed 10-minute Bermuda Triangle **script**, not an hour-long
 render. In the GUI, you can run the research and script stages first. Read the
