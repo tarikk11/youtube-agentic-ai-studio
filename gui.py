@@ -197,11 +197,30 @@ def _build_description(script, research, video_type: str = "normal"):
     # Chapters only make sense for videos > ~2 min — never for Shorts
     if not is_shorts:
         chapters, cursor = [], 0
-        for s in sections:
-            words = len(s.get("narration","").split())
-            dur = max(8, int(words/110*60))
-            chapters.append({"ts": _ts(cursor), "title": s.get("title","")})
-            cursor += dur
+        if script.get("style") == "sleep_documentary":
+            # Do not advertise invented chapter timestamps. Only use the
+            # sample-count-based timing manifest from Kokoro synthesis.
+            try:
+                from video.kokoro_narrator import script_hash
+                with open(os.path.join(config.OUTPUT_DIR, "narration_timing.json"),
+                          encoding="utf-8") as f:
+                    timing = json.load(f)
+                spans = timing.get("sections", [])
+                if (timing.get("script_hash") == script_hash(script)
+                        and len(spans) == len(sections)):
+                    chapters = [
+                        {"ts": _ts(int(span["start_seconds"])),
+                         "title": section.get("title", "")}
+                        for section, span in zip(sections, spans)
+                    ]
+            except (OSError, ValueError, KeyError, TypeError):
+                chapters = []
+        else:
+            for s in sections:
+                words = len(s.get("narration","").split())
+                dur = max(8, int(words/110*60))
+                chapters.append({"ts": _ts(cursor), "title": s.get("title","")})
+                cursor += dur
 
         if len(chapters) >= 3:
             lines += ["─"*40, "⏱ CHAPTERS", "─"*40]
@@ -216,6 +235,9 @@ def _build_description(script, research, video_type: str = "normal"):
     if is_shorts:
         lines += ["👆 Follow for more mind-bending facts!",
                   "💬 Comment: did this surprise you?", ""]
+    elif script.get("style") == "sleep_documentary":
+        # Keep this bedtime format free from forced engagement prompts.
+        pass
     else:
         lines += ["─"*40, "🔔 Subscribe for a new mind-bending video every week!",
                   "👍 Like if this made you think differently.",
