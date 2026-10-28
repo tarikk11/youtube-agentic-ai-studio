@@ -215,3 +215,74 @@ def load_chapter_timing(script: dict, output_dir: str, audio_duration: float) ->
             f"timeline ({previous_end:.2f}s). Check your mixed audio and re-run."
         )
     return spans
+
+
+def run_kokoro_worker(script: dict, output_dir: str) -> str:
+    """Run Kokoro in its own virtualenv so NumPy 2 never breaks MoviePy 1."""
+    import subprocess
+    import tempfile
+
+    root = Path(__file__).resolve().parent.parent
+    executable = os.getenv("KOKORO_PYTHON")
+    if not executable:
+        executable = str(root / ".venv-kokoro"
+                         / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    if not Path(executable).is_file():
+        raise FileNotFoundError(
+            f"Separate Kokoro Python environment not found at {executable}. "
+            "Create .venv-kokoro and install requirements-documentary.txt "
+            "(see docs/MYSTERIES_STAGE2_SETUP.md)."
+        )
+
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", suffix=".json", prefix="kokoro-script-",
+            dir=str(output), delete=False
+        ) as handle:
+            json.dump(script, handle, ensure_ascii=False)
+            tmp_path = handle.name
+
+        command = [
+            executable, "-m", "video.kokoro_narrator", "--script", tmp_path,
+            "--output-dir", str(output.resolve())
+        ]
+        process = subprocess.Popen(
+            command, cwd=str(root), stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True, bufsize=1,
+            encoding="utf-8", errors="replace",
+        )
+        if process.stdout:
+            for line in process.stdout:
+                print(line.rstrip())
+        code = process.wait()
+        if code:
+            raise RuntimeError(f"Kokoro voice worker exited with code {code}; "
+                               "see earlier narration output for the cause.")
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+    audio = output / "narration.wav"
+    if not audio.is_file():
+        raise FileNotFoundError(
+            f"Kokoro worker ended without producing the expected WAV: {audio}"
+        )
+    return str(audio)
+
+
+def _main() -> None:
+    """CLI entry used by the isolated interpreter only."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Isolated Kokoro documentary TTS worker")
+    parser.add_argument("--script", required=True)
+    parser.add_argument("--output-dir", required=True)
+    args = parser.parse_args()
+    source = json.loads(Path(args.script).read_text(encoding="utf-8"))
+    generate_documentary_narration(source, args.output_dir)
+
+
+if __name__ == "__main__":
+    _main()
