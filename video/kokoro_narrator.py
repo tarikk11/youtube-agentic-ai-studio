@@ -70,8 +70,10 @@ def generate_documentary_narration(script: dict, output_dir: str) -> str:
         from kokoro_onnx import Kokoro
     except ImportError as exc:
         raise RuntimeError(
-            "Kokoro is not installed in this project's virtual environment. "
-            "Run: .\\.venv\\Scripts\\python.exe -m pip install -r requirements-documentary.txt"
+            "Kokoro voice-worker dependencies are missing from .venv-kokoro. "
+            "Install them using: .\\.venv-kokoro\\Scripts\\python.exe "
+            "-m pip install -r requirements-documentary.txt "
+            "(do not install them into the main .venv)."
         ) from exc
 
     model, voices = model_paths()
