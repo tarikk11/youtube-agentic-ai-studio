@@ -104,7 +104,7 @@ BRAND_TEXT         = ""
 THUMB_STYLE        = "impact"
 
 # Adds "Made with YAAS by Raunak Patil · https://raunakpatil.com" to descriptions
-CREDIT_YAAS        = True
+CREDIT_YAAS        = False
 
 
 def brand_text() -> str:
@@ -215,7 +215,7 @@ REVIEW_PORT = 5050
 YOUTUBE_CLIENT_SECRET = "client_secret.json"   # OAuth credentials file (see SETUP.md)
 YOUTUBE_SCOPES        = ["https://www.googleapis.com/auth/youtube.upload"]
 VIDEO_CATEGORY_ID     = "27"       # 27 = Education
-VIDEO_PRIVACY         = "public"   # "public" | "unlisted" | "private"
+VIDEO_PRIVACY         = "private"   # "public" | "unlisted" | "private"
 
 # ─────────────────────────────────────────
 #  Background Music
@@ -242,3 +242,11 @@ IMAGES_DIR   = "output/images"
 # ─────────────────────────────────────────────────────────────────────────────
 DOCUMENTARY_MODE = True
 DOCUMENTARY_TARGET_MINUTES = 10
+
+# Long-form narration uses Kokoro ONNX, not the Edge TTS voice setting.
+KOKORO_VOICE = "bm_george"
+KOKORO_SPEED = 0.92
+KOKORO_CHUNK_PAUSE = 0.16
+KOKORO_CHAPTER_PAUSE = 0.85
+KOKORO_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "kokoro", "kokoro-v1.0.onnx")
+KOKORO_VOICES_PATH = os.path.join(os.path.dirname(__file__), "models", "kokoro", "voices-v1.0.bin")
