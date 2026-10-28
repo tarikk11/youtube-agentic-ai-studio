@@ -231,3 +231,14 @@ MUSIC_LIBRARY_DIR = os.path.join(os.path.dirname(__file__), "music library")
 # ─────────────────────────────────────────
 OUTPUT_DIR   = "output"
 IMAGES_DIR   = "output/images"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mysteries of the World: long-form documentary scripting
+# The original Shorts path is unchanged. Normal-video scripts are written
+# chapter-by-chapter so a long script is not squeezed into one model response.
+# Valid initial lengths: 10 (pilot), 30, 60 or 90 minutes.
+# This is a SCRIPT target; actual video duration follows generated narration.
+# ─────────────────────────────────────────────────────────────────────────────
+DOCUMENTARY_MODE = True
+DOCUMENTARY_TARGET_MINUTES = 10
