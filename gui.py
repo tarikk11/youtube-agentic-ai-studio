@@ -468,11 +468,15 @@ def _run_pipeline(steps: list, topic_override: str = "", video_type: str = "norm
             _state["audio_path"] = audio_path
             _stage("narration", "done")
         else:
-            ap = os.path.join(config.OUTPUT_DIR, "narration.mp3")
+            # Kokoro documentary narration is WAV, while the legacy Edge path
+            # still produces MP3. Select by the loaded script to avoid stale audio.
+            name = ("narration.wav" if script.get("style") == "sleep_documentary"
+                    else "narration.mp3")
+            ap = os.path.join(config.OUTPUT_DIR, name)
             _state["audio_path"] = ap if os.path.exists(ap) else None
 
         if not _state["audio_path"] or not os.path.exists(_state["audio_path"]):
-            raise FileNotFoundError("narration.mp3 missing — run Narration step.")
+            raise FileNotFoundError("Narration audio missing — run Narration step.")
 
         _check_stop("narration")
 
