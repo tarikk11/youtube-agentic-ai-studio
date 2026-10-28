@@ -86,13 +86,15 @@ ARXIV_CATEGORIES = ["astro-ph.CO", "gr-qc", "quant-ph", "cs.AI", "q-bio.NC"]
 #  The more specific you are, the better the AI's topic suggestions.
 # ─────────────────────────────────────────
 CHANNEL_DESCRIPTION = """
-A mind-bending science and technology channel in the style of Vsauce, Veritasium, and Kurzgesagt.
-We focus heavily on deep, existential "What If" scenarios, the extreme future of Artificial Intelligence,
-theoretical physics, and mind-expanding thought experiments.
-Every video should explore the absolute limits of science, space, or tech, making the viewer question reality.
-Target audience: highly curious thinkers who want their minds blown by deep scientific and philosophical dives.
+Mysteries of the World is a calm, original long-form documentary channel for
+curious listeners and bedtime viewing. Each episode explores real historical
+mysteries, strange locations, lost expeditions, folklore and unanswered questions.
+Use quiet, atmospheric storytelling with clearly distinguished evidence,
+uncertainty and competing explanations. Never sensationalize tragedy, make up
+facts, or promise supernatural conclusions. Prioritize documentary substance,
+coherent chapters, source checking and respectful narration.
 """
-CHANNEL_NAME = "My AI Channel"   # shown on-screen and in upload metadata
+CHANNEL_NAME = "Mysteries of the World"   # shown on-screen and in upload metadata
 
 # On-video branding: the "▶ CHANNEL NAME" tag in the hook and on Shorts,
 # plus the channel line on thumbnails. Leave BRAND_TEXT empty to use CHANNEL_NAME.
@@ -137,7 +139,7 @@ VOICE_PITCH = "-3Hz"    # slightly deeper = more cinematic
 #    gemini-2.0-flash-lite   — fastest           (1500 req/day)
 #    gemini-1.5-flash-001    — reliable fallback (1500 req/day)
 # ─────────────────────────────────────────
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 
 # ─────────────────────────────────────────
 #  Video Dimensions
