@@ -134,7 +134,7 @@ def search_internet_archive(query: str, limit: int = 3) -> list[dict]:
     # Restrict searches to movie items. Broad searches are deliberately shallow.
     q = "mediatype:movies AND (" + " AND ".join(words) + ")"
     data = _json_get(ARCHIVE_SEARCH, params={
-        "q": q, "fl[]": ["identifier", "title"], "rows": max(4, min(limit * 3, 9)),
+        "q": q, "fl[]": ["identifier", "title"], "rows": max(3, min(limit + 1, 4)),
         "page": 1, "output": "json",
     })
     out = []
