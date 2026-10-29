@@ -68,6 +68,13 @@ _state = {
 class _Capture:
     """Redirect stdout into the log queue so pipeline prints appear in GUI."""
     def __init__(self, orig): self._orig = orig
+    @property
+    def encoding(self):
+        """Expose the wrapped console encoding to code using sys.stdout."""
+        return getattr(self._orig, "encoding", None)
+    @property
+    def errors(self):
+        return getattr(self._orig, "errors", None)
     def write(self, t):
         if t.strip(): _log_queue.put(("log", t.rstrip()))
         try: self._orig.write(t)
