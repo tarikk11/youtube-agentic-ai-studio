@@ -168,6 +168,13 @@ def search_commons(query: str, limit: int = 8) -> list[dict]:
     return results[:limit]
 
 
+def search_commons_video(query: str, limit: int = 6) -> list[dict]:
+    """Prefer actual moving footage; stills remain a backup."""
+    videos = search_commons(query + " filetype:video", limit=limit)
+    only_video = [item for item in videos if item["media_type"] == "video"]
+    return only_video or search_commons(query, limit=limit)
+
+
 def plan_preview(script: dict, spans: list[dict], seconds: float = 90,
                  shot_seconds: float = 15) -> list[dict]:
     """Generate deterministic scene slots aligned to measured chapter bounds."""
@@ -216,21 +223,40 @@ def plan_preview(script: dict, spans: list[dict], seconds: float = 90,
     return shots
 
 
-def discover_assets(shots: list[dict], *, pexels_key: str = "") -> list[dict]:
-    """Select distinct media, preferring Pexels stock and Commons archives."""
+def discover_assets(shots: list[dict], *, pixabay_key: str = "",
+                    cache_dir: str = "output/footage/.pixabay-cache") -> list[dict]:
+    """Keyless Commons + Internet Archive, optionally supplemented by Pixabay.
+
+    No Pexels key is necessary. All results stay pending manual rights review.
+    """
+    from video.footage_sources import search_pixabay, search_internet_archive
     used = set()
     for shot in shots:
-        providers = (
-            (search_commons, search_pexels) if shot["intent"] == "archive"
-            else (search_pexels, search_commons)
-        )
-        for provider in providers:
+        query = shot["query"]
+        if shot["intent"] == "archive":
+            providers = [
+                ("commons_video", lambda q=query: search_commons_video(q)),
+                ("archive", lambda q=query: search_internet_archive(q)),
+                ("commons_still", lambda q=query: search_commons(q)),
+            ]
+        else:
+            providers = [
+                ("pixabay", lambda q=query: search_pixabay(
+                    q, pixabay_key, cache_dir=cache_dir)),
+                ("commons_video", lambda q=query: search_commons_video(q)),
+                ("archive", lambda q=query: search_internet_archive(q)),
+                ("commons_still", lambda q=query: search_commons(q)),
+            ]
+        # Never contact Pixabay when no API key exists.
+        if not pixabay_key or pixabay_key.upper().startswith("YOUR_"):
+            providers = [(name, fn) for name, fn in providers if name != "pixabay"]
+        for name, search in providers:
             try:
-                found = (provider(shot["query"], pexels_key) if provider is search_pexels
-                         else provider(shot["query"]))
-            except (requests.RequestException, ValueError, KeyError) as exc:
+                found = search()
+            except (requests.RequestException, ValueError, KeyError, OSError) as exc:
+                # Avoid leaking provider API keys from exception URL strings.
                 shot.setdefault("warnings", []).append(
-                    f"{provider.__name__}: {type(exc).__name__}: {exc}"
+                    f"{name}: {type(exc).__name__} (see provider connectivity)"
                 )
                 continue
             asset = next((candidate for candidate in found
@@ -250,8 +276,10 @@ def _allowed_download_url(url: str) -> bool:
     return (
         parsed.scheme == "https"
         and (
-            host == "videos.pexels.com"
+            host == "cdn.pixabay.com"
             or host == "upload.wikimedia.org"
+            or host == "archive.org"
+            or host.endswith(".archive.org")
         )
     )
 
@@ -316,7 +344,8 @@ def create_preview_manifest(output_dir: str = "output", *,
                                 float(timing["total_duration_seconds"]))
     shots = plan_preview(script, spans, seconds=seconds)
     if not plan_only:
-        discover_assets(shots, pexels_key=config.PEXELS_API_KEY)
+        discover_assets(shots, pixabay_key=config.PIXABAY_API_KEY,
+                        cache_dir=str(output / "footage" / ".pixabay-cache"))
     folder = output / "footage"
     folder.mkdir(parents=True, exist_ok=True)
     if download and not plan_only:
@@ -334,7 +363,7 @@ def create_preview_manifest(output_dir: str = "output", *,
                 shot["download_status"] = "failed"
                 shot.setdefault("warnings", []).append(str(exc))
     manifest = {
-        "version": 1,
+        "version": 2,
         "purpose": "90-second footage-sourcing preview, NOT a final edit",
         "preview_seconds": min(float(seconds), float(spans[-1]["end_seconds"])),
         "script_title": script.get("title", ""),
@@ -343,9 +372,12 @@ def create_preview_manifest(output_dir: str = "output", *,
         "notice": (
             "All files remain pending rights, accuracy and visual review. "
             "Stock footage is illustrative; do not imply it records historical events. "
-            "Pexels API usage requires links to Pexels and creator credit where possible."
+            "Pixabay results must follow its API conditions and Content License. "
+            "Commons and Internet Archive licence labels need individual verification."
         ),
-        "pexels_credit": "Footage provided by Pexels: https://www.pexels.com/",
+        "sources": ["Wikimedia Commons", "Internet Archive",
+                    "Pixabay (only with optional API key)"],
+        "pixabay_credit": "Stock footage search: https://pixabay.com/videos/",
         "shots": shots,
     }
     target = folder / "preview_manifest.json"
