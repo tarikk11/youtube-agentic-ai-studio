@@ -169,10 +169,9 @@ def search_commons(query: str, limit: int = 8) -> list[dict]:
 
 
 def search_commons_video(query: str, limit: int = 6) -> list[dict]:
-    """Prefer actual moving footage; stills remain a backup."""
-    videos = search_commons(query + " filetype:video", limit=limit)
-    only_video = [item for item in videos if item["media_type"] == "video"]
-    return only_video or search_commons(query, limit=limit)
+    """Video-only Commons search; do not silently substitute stills."""
+    items = search_commons(query + " filetype:video", limit=limit)
+    return [item for item in items if item["media_type"] == "video"]
 
 
 def plan_preview(script: dict, spans: list[dict], seconds: float = 90,
@@ -223,49 +222,107 @@ def plan_preview(script: dict, spans: list[dict], seconds: float = 90,
     return shots
 
 
+# Curated initial pilot fallbacks. Keep geographical/historical intent intact:
+# "Bermuda" should never silently turn into an unrelated tropical island.
+BERMUDA_FALLBACK_QUERIES = {
+    "Atlantic Ocean aerial drone": ["Atlantic ocean", "ocean aerial"],
+    "Bermuda coastline aerial ocean": ["Bermuda coastline", "Bermuda island"],
+    "historic Atlantic nautical chart Bermuda": ["Bermuda map", "Atlantic nautical chart"],
+    "turquoise ocean water aerial": ["turquoise sea", "ocean water aerial"],
+    "historical sailing ship ocean": ["sailing ship", "tall ship"],
+    "dark ocean storm clouds": ["ocean storm", "storm clouds"],
+}
+
+
+def _query_variations(query: str) -> list[str]:
+    """A few bounded, specific searches instead of one overconstrained phrase."""
+    alternatives = BERMUDA_FALLBACK_QUERIES.get(query, [])
+    if not alternatives:
+        # For non-pilot documentary chapters, simplify without replacing the
+        # original subject with generic stock footage.
+        words = query.split()
+        alternatives = [" ".join(words[:3])] if len(words) > 3 else []
+    return list(dict.fromkeys([query, *alternatives]))[:3]
+
+
 def discover_assets(shots: list[dict], *, pixabay_key: str = "",
                     cache_dir: str = "output/footage/.pixabay-cache") -> list[dict]:
-    """Keyless Commons + Internet Archive, optionally supplemented by Pixabay.
+    """Find distinct footage with bounded query retries, then eligible stills.
 
-    No Pexels key is necessary. All results stay pending manual rights review.
+    Relevant archival maps are intentionally stills. Every other scene prefers
+    real moving footage before considering an illustrated fallback.
     """
     from video.footage_sources import search_pixabay, search_internet_archive
     used = set()
+    cache = {}
+
     for shot in shots:
-        query = shot["query"]
-        if shot["intent"] == "archive":
-            providers = [
-                ("commons_video", lambda q=query: search_commons_video(q)),
-                ("archive", lambda q=query: search_internet_archive(q)),
-                ("commons_still", lambda q=query: search_commons(q)),
-            ]
+        queries = _query_variations(shot["query"])
+        # A literal historical map is a more faithful visual than unrelated
+        # stock footage merely matching the word "Atlantic".
+        map_scene = shot["intent"] == "archive" and bool(
+            re.search(r"\b(map|chart|document|logbook)\b", shot["query"], re.I)
+        )
+        chosen = None
+        matched_query = None
+
+        def candidates(provider, query):
+            key = (provider, query)
+            if key not in cache:
+                try:
+                    if provider == "commons_video":
+                        cache[key] = search_commons_video(query)
+                    elif provider == "commons_still":
+                        cache[key] = search_commons(query)
+                    elif provider == "archive_video":
+                        cache[key] = search_internet_archive(query)
+                    elif provider == "pixabay":
+                        cache[key] = search_pixabay(query, pixabay_key, cache_dir=cache_dir)
+                    else:
+                        raise ValueError("Unknown media provider")
+                except (requests.RequestException, ValueError, KeyError, OSError) as exc:
+                    # Provider exceptions may contain API credentials in URLs.
+                    shot.setdefault("warnings", []).append(
+                        f"{provider} search failed: {type(exc).__name__}"
+                    )
+                    cache[key] = []
+            return cache[key]
+
+        # For geographical maps, prioritize actual archival stills first.
+        if map_scene:
+            stages = [("commons_still", "image"), ("commons_video", "video")]
         else:
-            providers = [
-                ("pixabay", lambda q=query: search_pixabay(
-                    q, pixabay_key, cache_dir=cache_dir)),
-                ("commons_video", lambda q=query: search_commons_video(q)),
-                ("archive", lambda q=query: search_internet_archive(q)),
-                ("commons_still", lambda q=query: search_commons(q)),
-            ]
-        # Never contact Pixabay when no API key exists.
-        if not pixabay_key or pixabay_key.upper().startswith("YOUR_"):
-            providers = [(name, fn) for name, fn in providers if name != "pixabay"]
-        for name, search in providers:
-            try:
-                found = search()
-            except (requests.RequestException, ValueError, KeyError, OSError) as exc:
-                # Avoid leaking provider API keys from exception URL strings.
-                shot.setdefault("warnings", []).append(
-                    f"{name}: {type(exc).__name__} (see provider connectivity)"
-                )
-                continue
-            asset = next((candidate for candidate in found
-                          if candidate["id"] not in used), None)
-            if asset:
-                shot["asset"] = asset
-                used.add(asset["id"])
+            stages = []
+            if pixabay_key and not pixabay_key.upper().startswith("YOUR_") and shot["intent"] != "archive":
+                stages.append(("pixabay", "video"))
+            stages.extend([
+                ("commons_video", "video"),
+                ("archive_video", "video"),
+                ("commons_still", "image"),
+            ])
+
+        for provider, desired_type in stages:
+            if chosen:
                 break
-        if shot["asset"] is None:
+            # Internet Archive searches can be very costly (one request per
+            # result's metadata), so try only the first two query variants.
+            selected_queries = queries[:2] if provider == "archive_video" else queries
+            for query in selected_queries:
+                items = candidates(provider, query)
+                chosen = next(
+                    (a for a in items if a["id"] not in used and a["media_type"] == desired_type),
+                    None,
+                )
+                if chosen:
+                    matched_query = query
+                    break
+        if chosen:
+            used.add(chosen["id"])
+            shot["asset"] = chosen
+            shot["selected_query"] = matched_query
+            shot["fallback_used"] = matched_query != shot["query"]
+        else:
+            shot["asset"] = None
             shot["download_status"] = "missing"
     return shots
 
