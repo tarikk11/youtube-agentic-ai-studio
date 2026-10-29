@@ -152,7 +152,9 @@ def test_download_blocks_other_domains(tmp_path):
 
 def test_download_enforces_size_limit_and_cleans_partial(monkeypatch, tmp_path):
     class FakeResponse:
-        url = "https://videos.pexels.com/test.mp4"
+        # Pexels CDN was deliberately removed from the production allowlist.
+        # Use an approved Pixabay URL to exercise the actual size-limit guard.
+        url = "https://cdn.pixabay.com/video/test.mp4"
         headers = {"Content-Type": "video/mp4", "Content-Length": "500"}
         def raise_for_status(self):
             return None
