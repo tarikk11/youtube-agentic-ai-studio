@@ -262,7 +262,7 @@ def run_kokoro_worker(script: dict, output_dir: str) -> str:
         )
         if process.stdout:
             import sys
-            encoding = sys.stdout.encoding or "utf-8"
+            encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
             for line in process.stdout:
                 safe = line.rstrip().encode(encoding, errors="backslashreplace").decode(encoding)
                 print(safe)
