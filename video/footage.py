@@ -174,6 +174,12 @@ def search_commons_video(query: str, limit: int = 6) -> list[dict]:
     return [item for item in items if item["media_type"] == "video"]
 
 
+def search_commons_still(query: str, limit: int = 8) -> list[dict]:
+    """Search for raster images explicitly, avoiding video-heavy result pages."""
+    items = search_commons(query + " filetype:bitmap", limit=limit)
+    return [item for item in items if item["media_type"] == "image"]
+
+
 def plan_preview(script: dict, spans: list[dict], seconds: float = 90,
                  shot_seconds: float = 15) -> list[dict]:
     """Generate deterministic scene slots aligned to measured chapter bounds."""
@@ -273,7 +279,7 @@ def discover_assets(shots: list[dict], *, pixabay_key: str = "",
                     if provider == "commons_video":
                         cache[key] = search_commons_video(query)
                     elif provider == "commons_still":
-                        cache[key] = search_commons(query)
+                        cache[key] = search_commons_still(query)
                     elif provider == "archive_video":
                         cache[key] = search_internet_archive(query)
                     elif provider == "pixabay":
@@ -304,9 +310,10 @@ def discover_assets(shots: list[dict], *, pixabay_key: str = "",
         for provider, desired_type in stages:
             if chosen:
                 break
-            # Internet Archive searches can be very costly (one request per
-            # result's metadata), so try only the first two query variants.
-            selected_queries = queries[:2] if provider == "archive_video" else queries
+            # Internet Archive has to fetch metadata per candidate. Try the
+            # first shorter alternative only to avoid an expensive deep crawl.
+            selected_queries = ((queries[1:2] or queries[:1])
+                                if provider == "archive_video" else queries)
             for query in selected_queries:
                 items = candidates(provider, query)
                 chosen = next(
