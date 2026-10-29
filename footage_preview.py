@@ -35,7 +35,7 @@ def main():
     data = json.loads(manifest.read_text(encoding="utf-8"))
     print(f"\nPreview plan saved: {manifest}")
     print(f"Subject: {data['script_title']}")
-    print(f"Source acknowledgement: {data['pexels_credit']}")
+    print("Media providers: " + ", ".join(data.get("sources", [])))
     for shot in data["shots"]:
         asset = shot.get("asset")
         label = (f"{asset['source']} / {asset['media_type']}"
