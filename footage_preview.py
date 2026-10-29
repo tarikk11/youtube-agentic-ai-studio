@@ -42,8 +42,17 @@ def main():
                  if asset else "no eligible asset found")
         print(f"  {shot['start_seconds']:6.1f}-{shot['end_seconds']:6.1f}s"
               f"  {label}: {shot['query']}")
+        if shot.get("fallback_used"):
+            print(f"    Matched simpler search: {shot['selected_query']}")
         for warning in shot.get("warnings", []):
             print(f"    Warning: {warning}")
+    if not args.plan_only:
+        videos = sum(s.get("asset", {}).get("media_type") == "video"
+                     for s in data["shots"] if s.get("asset"))
+        images = sum(s.get("asset", {}).get("media_type") == "image"
+                     for s in data["shots"] if s.get("asset"))
+        missing = len(data["shots"]) - videos - images
+        print(f"\nCoverage: {videos} video, {images} still image, {missing} missing")
     if args.plan_only:
         print("\nPlanning only; no network calls or downloads were made.")
     elif args.download:
