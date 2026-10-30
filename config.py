@@ -86,13 +86,15 @@ ARXIV_CATEGORIES = ["astro-ph.CO", "gr-qc", "quant-ph", "cs.AI", "q-bio.NC"]
 #  The more specific you are, the better the AI's topic suggestions.
 # ─────────────────────────────────────────
 CHANNEL_DESCRIPTION = """
-A mind-bending science and technology channel in the style of Vsauce, Veritasium, and Kurzgesagt.
-We focus heavily on deep, existential "What If" scenarios, the extreme future of Artificial Intelligence,
-theoretical physics, and mind-expanding thought experiments.
-Every video should explore the absolute limits of science, space, or tech, making the viewer question reality.
-Target audience: highly curious thinkers who want their minds blown by deep scientific and philosophical dives.
+Mysteries of the World is a calm, original long-form documentary channel for
+curious listeners and bedtime viewing. Each episode explores real historical
+mysteries, strange locations, lost expeditions, folklore and unanswered questions.
+Use quiet, atmospheric storytelling with clearly distinguished evidence,
+uncertainty and competing explanations. Never sensationalize tragedy, make up
+facts, or promise supernatural conclusions. Prioritize documentary substance,
+coherent chapters, source checking and respectful narration.
 """
-CHANNEL_NAME = "My AI Channel"   # shown on-screen and in upload metadata
+CHANNEL_NAME = "Mysteries of the World"   # shown on-screen and in upload metadata
 
 # On-video branding: the "▶ CHANNEL NAME" tag in the hook and on Shorts,
 # plus the channel line on thumbnails. Leave BRAND_TEXT empty to use CHANNEL_NAME.
@@ -104,7 +106,7 @@ BRAND_TEXT         = ""
 THUMB_STYLE        = "impact"
 
 # Adds "Made with YAAS by Raunak Patil · https://raunakpatil.com" to descriptions
-CREDIT_YAAS        = True
+CREDIT_YAAS        = False
 
 
 def brand_text() -> str:
@@ -137,7 +139,7 @@ VOICE_PITCH = "-3Hz"    # slightly deeper = more cinematic
 #    gemini-2.0-flash-lite   — fastest           (1500 req/day)
 #    gemini-1.5-flash-001    — reliable fallback (1500 req/day)
 # ─────────────────────────────────────────
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 
 # ─────────────────────────────────────────
 #  Video Dimensions
@@ -215,7 +217,7 @@ REVIEW_PORT = 5050
 YOUTUBE_CLIENT_SECRET = "client_secret.json"   # OAuth credentials file (see SETUP.md)
 YOUTUBE_SCOPES        = ["https://www.googleapis.com/auth/youtube.upload"]
 VIDEO_CATEGORY_ID     = "27"       # 27 = Education
-VIDEO_PRIVACY         = "public"   # "public" | "unlisted" | "private"
+VIDEO_PRIVACY         = "private"   # "public" | "unlisted" | "private"
 
 # ─────────────────────────────────────────
 #  Background Music
@@ -231,3 +233,22 @@ MUSIC_LIBRARY_DIR = os.path.join(os.path.dirname(__file__), "music library")
 # ─────────────────────────────────────────
 OUTPUT_DIR   = "output"
 IMAGES_DIR   = "output/images"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mysteries of the World: long-form documentary scripting
+# The original Shorts path is unchanged. Normal-video scripts are written
+# chapter-by-chapter so a long script is not squeezed into one model response.
+# Valid initial lengths: 10 (pilot), 30, 60 or 90 minutes.
+# This is a SCRIPT target; actual video duration follows generated narration.
+# ─────────────────────────────────────────────────────────────────────────────
+DOCUMENTARY_MODE = True
+DOCUMENTARY_TARGET_MINUTES = 10
+
+# Long-form narration uses Kokoro ONNX, not the Edge TTS voice setting.
+KOKORO_VOICE = "bm_george"
+KOKORO_SPEED = 0.92
+KOKORO_CHUNK_PAUSE = 0.16
+KOKORO_CHAPTER_PAUSE = 0.85
+KOKORO_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "kokoro", "kokoro-v1.0.onnx")
+KOKORO_VOICES_PATH = os.path.join(os.path.dirname(__file__), "models", "kokoro", "voices-v1.0.bin")

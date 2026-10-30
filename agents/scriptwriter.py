@@ -2,6 +2,7 @@
 Script Writer Agent — uses shared Gemini client with model fallback chain.
 """
 import json
+import config
 from agents.gemini_client import generate
 from agents.json_utils import extract_json
 
@@ -26,6 +27,13 @@ def write_script(research: dict, video_type: str = "normal") -> dict:
     """
     if video_type == "shorts":
         return _write_shorts_script(research)
+
+    # Normal videos become chaptered documentaries when enabled.
+    # The original fast-paced science template remains available if disabled.
+    if getattr(config, "DOCUMENTARY_MODE", False):
+        from agents.documentary import write_documentary_script
+        target = getattr(config, "DOCUMENTARY_TARGET_MINUTES", 10)
+        return write_documentary_script(research, target_minutes=target)
 
     key_points_str = "\n".join(f"  {i+1}. {p}" for i, p in enumerate(research["key_points"]))
 

@@ -9,6 +9,7 @@ Shorts  : Fast-paced 1080×1920, image slideshow (cuts every 2-3 s),
 Runs fully offline: MoviePy 1.0.3 + Pillow + NumPy.
 """
 import os, re, math
+from bisect import bisect_right
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from moviepy.editor import VideoClip, AudioFileClip, concatenate_videoclips
@@ -449,7 +450,8 @@ def _make_clip(section, duration, bg_images, section_num, total_sections,
             pan_cur   = BROLL_PAN_DIRS[cur_idx % len(BROLL_PAN_DIRS)]
             cur_frame = _ken_burns(bg_images[cur_idx], img_t, BROLL_INTERVAL,
                                    pan_dir=pan_cur)
-            cur_frame = _apply_overlay(cur_frame)
+            if s_type != "documentary":
+                cur_frame = _apply_overlay(cur_frame)
 
             # Crossfade into next image during last BROLL_XFADE_DUR seconds
             xfade_start = BROLL_INTERVAL - BROLL_XFADE_DUR
@@ -463,14 +465,21 @@ def _make_clip(section, duration, bg_images, section_num, total_sections,
                 nxt_img_t = max(0.0, img_t - BROLL_INTERVAL)
                 nxt_frame = _ken_burns(bg_images[next_idx], nxt_img_t, BROLL_INTERVAL,
                                        pan_dir=pan_next)
-                nxt_frame = _apply_overlay(nxt_frame)
+                if s_type != "documentary":
+                    nxt_frame = _apply_overlay(nxt_frame)
                 frame_np  = (cur_frame.astype(np.float32) * (1.0 - alpha) +
                              nxt_frame.astype(np.float32) * alpha).astype(np.uint8)
             else:
                 frame_np = cur_frame
         else:
             frame_np = _gradient_bg(t)
-            frame_np = _apply_overlay(frame_np, 0.3)
+            if s_type != "documentary":
+                frame_np = _apply_overlay(frame_np, 0.3)
+
+        # Bedtime documentaries show clean footage without persistent text,
+        # captions, branding or progress bars.
+        if s_type == "documentary":
+            return frame_np
 
         frame = Image.fromarray(frame_np)
         draw  = ImageDraw.Draw(frame)
@@ -523,6 +532,34 @@ def _crossfade(clip_a, clip_b, fade_dur=0.8):
             frame_a = clip_a.get_frame(t)
             frame_b = clip_b.get_frame(t - (clip_a.duration - fade_dur))
             return (frame_a * (1 - alpha) + frame_b * alpha).astype(np.uint8)
+
+    return VideoClip(make_frame, duration=total)
+
+
+
+def _join_documentary_clips(clips: list, fade_dur: float = 0.8):
+    """Blend boundaries without overlapping or shrinking chapter durations."""
+    if not clips:
+        raise ValueError("No documentary chapters to render.")
+    starts = []
+    total = 0.0
+    for clip in clips:
+        starts.append(total)
+        total += clip.duration
+
+    def make_frame(t):
+        idx = min(len(clips) - 1, max(0, bisect_right(starts, t) - 1))
+        current = clips[idx]
+        local = max(0.0, min(t - starts[idx], current.duration - 1.0 / FPS))
+        frame = current.get_frame(local)
+        if idx and local < fade_dur:
+            previous = clips[idx - 1]
+            last = previous.get_frame(max(0.0, previous.duration - 1.0 / FPS))
+            a = local / fade_dur
+            a = a * a * (3.0 - 2.0 * a)
+            frame = (last.astype(np.float32) * (1.0 - a)
+                     + frame.astype(np.float32) * a).astype(np.uint8)
+        return frame
 
     return VideoClip(make_frame, duration=total)
 
@@ -880,6 +917,14 @@ def create_video(script: dict, audio_path: str, output_dir: str,
     else:
         sections       = script["sections"]
         total_sections = len(sections)
+        is_documentary = script.get("style") == "sleep_documentary"
+        doc_audio = None
+        doc_spans = None
+        if is_documentary:
+            from video.kokoro_narrator import load_chapter_timing
+            doc_audio = AudioFileClip(audio_path)
+            doc_spans = load_chapter_timing(script, output_dir, doc_audio.duration)
+            print("   → Using measured chapter durations from Kokoro narration")
 
         # Load SRT captions for burnt-in subtitles
         srt_path = os.path.join(output_dir, "narration.srt")
@@ -895,7 +940,8 @@ def create_video(script: dict, audio_path: str, output_dir: str,
 
         for i, section in enumerate(sections):
             words    = len(section.get("narration", "").split())
-            duration = max(8.0, (words / 110) * 60)
+            duration = (doc_spans[i]["duration_seconds"] if is_documentary
+                        else max(8.0, (words / 110) * 60))
             s_type   = section.get("section_type", "content")
             print(f"     [{section['id']:02d}] {section['title']:<42} {duration:5.1f}s  [{s_type}]")
 
@@ -919,23 +965,29 @@ def create_video(script: dict, audio_path: str, output_dir: str,
             clips.append(clip)
             section_start_t += duration   # advance global timestamp
 
-        print("\n   → Crossfading sections…")
-        final = clips[0]
-        for clip in clips[1:]:
-            final = _crossfade(final, clip, fade_dur=0.7)
-
-        print("   → Attaching narration…")
-        audio = AudioFileClip(audio_path)
-        if audio.duration > final.duration:
-            audio = audio.subclip(0, final.duration)
+        if is_documentary:
+            print("\n   → Joining documentary chapters on the narration timeline…")
+            final = _join_documentary_clips(clips, fade_dur=0.8)
+            # MP3 music mixes may have a tiny encoder delay; preserve chapter
+            # positions, while attaching audio at its actual measured duration.
+            final = final.set_duration(doc_audio.duration).set_audio(doc_audio)
         else:
-            final = final.subclip(0, audio.duration)
-        final = final.set_audio(audio)
+            print("\n   → Crossfading sections…")
+            final = clips[0]
+            for clip in clips[1:]:
+                final = _crossfade(final, clip, fade_dur=0.7)
+
+            print("   → Attaching narration…")
+            audio = AudioFileClip(audio_path)
+            if audio.duration > final.duration:
+                audio = audio.subclip(0, final.duration)
+            else:
+                final = final.subclip(0, audio.duration)
+            final = final.set_audio(audio)
 
         output_path = os.path.join(output_dir, "final_video.mp4")
 
-    # ── WATERMARK (always on) ──────────────────────────────────
-    final = _apply_watermark(final, W, H)
+    # No watermarks are added to any exported video.
 
     # ── EXPORT ─────────────────────────────────────────────────
     total_secs = int(final.duration)

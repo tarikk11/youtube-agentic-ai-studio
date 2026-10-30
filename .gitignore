@@ -13,6 +13,7 @@ build/
 # ── Virtual environments ─────────────────
 venv/
 .venv/
+.venv-kokoro/
 env/
 .env/
 ENV/
@@ -53,3 +54,7 @@ desktop.ini
 
 # ── Logs ─────────────────────────────────
 *.log
+
+# Offline voice model assets are downloaded by each user, never committed
+models/kokoro/
+*.onnx

@@ -532,7 +532,7 @@ details.more > .more-body { margin-top: 14px; }
         <div class="ask-row">
           <div class="or">no idea yet? <button class="surprise" type="button" id="surprise-btn"><b>✦</b> Let AI pick a topic</button></div>
           <div class="seg" id="format-seg" title="Video format">
-            <button data-fmt="normal" class="on" type="button">Long video · 6–8 min</button>
+            <button data-fmt="normal" class="on" type="button">Documentary · 10 min</button>
             <button data-fmt="shorts" type="button">Short · 60 s</button>
           </div>
         </div>
@@ -542,7 +542,7 @@ details.more > .more-body { margin-top: 14px; }
         <summary>More options</summary>
         <div class="more-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px">
           <div class="field">
-            <div class="label">Voice <small>✓ = captions synced word by word</small></div>
+            <div class="label">Voice <small>Documentaries use Kokoro bm_george; this selects Edge TTS for Shorts</small></div>
             <select id="quick-voice">
               <option value="en-US-AndrewNeural">Andrew — US, warm ✓</option>
               <option value="en-GB-LibbyNeural">Libby — UK, clear ✓</option>
@@ -578,7 +578,7 @@ details.more > .more-body { margin-top: 14px; }
             <label class="toggle"><span><b>Use today's trends</b><small>When AI picks, ride a trending story if it fits</small></span><input type="checkbox" id="quick-trends" checked><span class="switch"></span></label>
           </div>
           <div class="field" style="margin-top:0">
-            <div class="label">Redo only some steps <small>to re-render your last video</small></div>
+            <div class="label">Choose production stages <small>Start with Research + Script to review first</small></div>
             <div class="chips" id="steps">
               <label class="chip on"><input type="checkbox" value="research" checked>Research</label>
               <label class="chip on"><input type="checkbox" value="script" checked>Script</label>
@@ -905,12 +905,12 @@ details.more > .more-body { margin-top: 14px; }
         </div>
         <div class="field"><div class="label">Gemini model to try first</div>
           <select id="s-gemini_model">
-            <option value="gemini-2.5-flash">gemini-2.5-flash — best quality</option>
-            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite — fast + smart</option>
-            <option value="gemma-4-31b-it">gemma-4-31b-it</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash — most free quota</option>
-            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite — fastest</option>
-            <option value="gemma-3-27b-it">gemma-3-27b-it</option>
+            <option value="gemini-3.8-flash">Gemini 3.8 Flash — recommended for documentary scripts</option>
+            <option value="gemini-3.6-flash">Gemini 3.6 Flash — alternative</option>
+            <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite — faster, lower resource use</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash — legacy accounts only</option>
+            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite — legacy accounts only</option>
+            <option value="gemma-3-27b-it">Gemma 3 27B — alternate model</option>
           </select></div>
         <div class="field"><div class="label">Groq model</div><input type="text" id="s-groq_model"></div>
         <div class="field"><div class="label">OpenRouter model</div><input type="text" id="s-openrouter_model"></div>

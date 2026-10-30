@@ -315,6 +315,10 @@ def generate_narration(script: dict, output_dir: str) -> str:
     Concatenates all section narrations → synthesises MP3 → writes SRT.
     Returns path to the saved audio file.
     """
+    if script.get("style") == "sleep_documentary":
+        from video.kokoro_narrator import run_kokoro_worker
+        return run_kokoro_worker(script, output_dir)
+
     parts = []
     for section in script["sections"]:
         narration = section.get("narration", "").strip()

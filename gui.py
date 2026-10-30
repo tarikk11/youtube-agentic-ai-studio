@@ -68,6 +68,13 @@ _state = {
 class _Capture:
     """Redirect stdout into the log queue so pipeline prints appear in GUI."""
     def __init__(self, orig): self._orig = orig
+    @property
+    def encoding(self):
+        """Expose the wrapped console encoding to code using sys.stdout."""
+        return getattr(self._orig, "encoding", None)
+    @property
+    def errors(self):
+        return getattr(self._orig, "errors", None)
     def write(self, t):
         if t.strip(): _log_queue.put(("log", t.rstrip()))
         try: self._orig.write(t)
@@ -197,11 +204,30 @@ def _build_description(script, research, video_type: str = "normal"):
     # Chapters only make sense for videos > ~2 min — never for Shorts
     if not is_shorts:
         chapters, cursor = [], 0
-        for s in sections:
-            words = len(s.get("narration","").split())
-            dur = max(8, int(words/110*60))
-            chapters.append({"ts": _ts(cursor), "title": s.get("title","")})
-            cursor += dur
+        if script.get("style") == "sleep_documentary":
+            # Do not advertise invented chapter timestamps. Only use the
+            # sample-count-based timing manifest from Kokoro synthesis.
+            try:
+                from video.kokoro_narrator import script_hash
+                with open(os.path.join(config.OUTPUT_DIR, "narration_timing.json"),
+                          encoding="utf-8") as f:
+                    timing = json.load(f)
+                spans = timing.get("sections", [])
+                if (timing.get("script_hash") == script_hash(script)
+                        and len(spans) == len(sections)):
+                    chapters = [
+                        {"ts": _ts(int(span["start_seconds"])),
+                         "title": section.get("title", "")}
+                        for section, span in zip(sections, spans)
+                    ]
+            except (OSError, ValueError, KeyError, TypeError):
+                chapters = []
+        else:
+            for s in sections:
+                words = len(s.get("narration","").split())
+                dur = max(8, int(words/110*60))
+                chapters.append({"ts": _ts(cursor), "title": s.get("title","")})
+                cursor += dur
 
         if len(chapters) >= 3:
             lines += ["─"*40, "⏱ CHAPTERS", "─"*40]
@@ -216,6 +242,9 @@ def _build_description(script, research, video_type: str = "normal"):
     if is_shorts:
         lines += ["👆 Follow for more mind-bending facts!",
                   "💬 Comment: did this surprise you?", ""]
+    elif script.get("style") == "sleep_documentary":
+        # Keep this bedtime format free from forced engagement prompts.
+        pass
     else:
         lines += ["─"*40, "🔔 Subscribe for a new mind-bending video every week!",
                   "👍 Like if this made you think differently.",
@@ -468,11 +497,17 @@ def _run_pipeline(steps: list, topic_override: str = "", video_type: str = "norm
             _state["audio_path"] = audio_path
             _stage("narration", "done")
         else:
-            ap = os.path.join(config.OUTPUT_DIR, "narration.mp3")
+            # Kokoro documentary narration is WAV, while the legacy Edge path
+            # still produces MP3. Select by the loaded script to avoid stale audio.
+            name = ("narration.wav" if script.get("style") == "sleep_documentary"
+                    else "narration.mp3")
+            ap = os.path.join(config.OUTPUT_DIR, name)
             _state["audio_path"] = ap if os.path.exists(ap) else None
 
-        if not _state["audio_path"] or not os.path.exists(_state["audio_path"]):
-            raise FileNotFoundError("narration.mp3 missing — run Narration step.")
+        # Script/research-only pilot runs must not require audio.
+        needs_audio = any(stage in steps for stage in ("narration", "music", "video"))
+        if needs_audio and (not _state["audio_path"] or not os.path.exists(_state["audio_path"])):
+            raise FileNotFoundError("Narration audio missing — run Narration step.")
 
         _check_stop("narration")
 
@@ -492,14 +527,16 @@ def _run_pipeline(steps: list, topic_override: str = "", video_type: str = "norm
         _check_stop("music")
 
         # ── Thumbnail ─────────────────────────────────────────
-        _log("Generating thumbnail…")
-        try:
-            image_map_int = {int(k): v for k, v in _state["image_map"].items()}
-            thumb = _make_thumbnail(script, image_map_int, config.OUTPUT_DIR)
-            _state["thumb_path"] = thumb
-            _log(f"Thumbnail saved: {thumb}")
-        except Exception as e:
-            _log(f"Thumbnail failed (non-fatal): {e}", "warn")
+        # Avoid extra provider calls when the user is just reviewing a script.
+        if "images" in steps or "video" in steps:
+            _log("Generating thumbnail…")
+            try:
+                image_map_int = {int(k): v for k, v in _state["image_map"].items()}
+                thumb = _make_thumbnail(script, image_map_int, config.OUTPUT_DIR)
+                _state["thumb_path"] = thumb
+                _log(f"Thumbnail saved: {thumb}")
+            except Exception as e:
+                _log(f"Thumbnail failed (non-fatal): {e}", "warn")
 
         _check_stop("thumbnail")
 
